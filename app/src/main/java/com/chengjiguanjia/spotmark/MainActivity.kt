@@ -12,15 +12,18 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.Surface
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,10 +71,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
@@ -91,13 +97,29 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+
+private val Night = Color(0xFF110D0A)
+private val Umber = Color(0xFF211611)
+private val Panel = Color(0xFF2B1B13)
+private val PanelSoft = Color(0xFF372216)
+private val Gold = Color(0xFFE2A84B)
+private val GoldSoft = Color(0xFFFFD283)
+private val Bone = Color(0xFFF4E6CF)
+private val Smoke = Color(0xFFBCA78B)
+private val Oxide = Color(0xFF8D4027)
+
+private data class DeviceOrientation(
+    val headingDegrees: Float = 0f,
+    val isTilted: Boolean = false,
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SpotMarkTheme(dynamicColor = false) {
+            SpotMarkTheme(darkTheme = true, dynamicColor = false) {
                 SpotMarkApp()
             }
         }
@@ -152,11 +174,10 @@ fun SpotMarkApp(
                 PendingLocationAction.Update -> pendingUpdateSpot?.let { spot ->
                     viewModel.updateSpotLocation(spot)
                 }
-
                 null -> Unit
             }
         } else {
-            scope.launch { snackbarHostState.showSnackbar("需要定位权限才能保存、更新或找回物品") }
+            scope.launch { snackbarHostState.showSnackbar("Location permission is required.") }
         }
         pendingAction = null
         pendingFindSpot = null
@@ -206,7 +227,7 @@ fun SpotMarkApp(
             onNavigate = {
                 if (!openNavigation(context, spot)) {
                     copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar("未找到地图 APP，已复制经纬度") }
+                    scope.launch { snackbarHostState.showSnackbar("No map app found. Coordinates copied.") }
                 }
             },
             snackbarHostState = snackbarHostState,
@@ -216,7 +237,7 @@ fun SpotMarkApp(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Night,
     ) { innerPadding ->
         HomeScreen(
             spots = spots,
@@ -254,7 +275,7 @@ fun SpotMarkApp(
             onNavigate = { spot ->
                 if (!openNavigation(context, spot)) {
                     copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar("未找到地图 APP，已复制经纬度") }
+                    scope.launch { snackbarHostState.showSnackbar("No map app found. Coordinates copied.") }
                 }
             },
         )
@@ -312,23 +333,104 @@ private fun HomeScreen(
     onFind: (SavedSpot) -> Unit,
     onNavigate: (SavedSpot) -> Unit,
 ) {
-    Column(
+    RembrandtBackdrop {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .padding(horizontal = 20.dp),
+        ) {
+            Spacer(Modifier.height(24.dp))
+            HeroPanel(
+                isCapturing = isCapturing,
+                onCapture = onCapture,
+                savedCount = spots.size,
+            )
+            Spacer(Modifier.height(18.dp))
+
+            if (spots.isEmpty()) {
+                EmptyState()
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(bottom = 28.dp),
+                ) {
+                    items(spots, key = { it.id }) { spot ->
+                        SpotCard(
+                            spot = spot,
+                            onEdit = { onEdit(spot) },
+                            onFind = { onFind(spot) },
+                            onNavigate = { onNavigate(spot) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RembrandtBackdrop(content: @Composable () -> Unit) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(contentPadding)
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp),
+            .background(Night),
     ) {
-        Spacer(Modifier.height(20.dp))
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Gold.copy(alpha = 0.34f), Color.Transparent),
+                    center = Offset(size.width * 0.22f, size.height * 0.10f),
+                    radius = size.maxDimension * 0.62f,
+                ),
+                radius = size.maxDimension * 0.62f,
+                center = Offset(size.width * 0.22f, size.height * 0.10f),
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Oxide.copy(alpha = 0.20f), Color.Transparent),
+                    center = Offset(size.width * 0.88f, size.height * 0.74f),
+                    radius = size.maxDimension * 0.48f,
+                ),
+                radius = size.maxDimension * 0.48f,
+                center = Offset(size.width * 0.88f, size.height * 0.74f),
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun HeroPanel(
+    isCapturing: Boolean,
+    onCapture: () -> Unit,
+    savedCount: Int,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(26.dp, RoundedCornerShape(8.dp), ambientColor = Color.Black, spotColor = Gold)
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(PanelSoft, Panel, Umber),
+                    start = Offset.Zero,
+                    end = Offset.Infinite,
+                ),
+                shape = RoundedCornerShape(8.dp),
+            )
+            .border(1.dp, Gold.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+            .padding(18.dp),
+    ) {
         Text(
             text = "SpotMark",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Black,
+            color = Bone,
         )
         Text(
-            text = "锁定物品位置，回来时按方向和距离找回。",
+            text = "Saved lights in the dark: $savedCount",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Smoke,
         )
         Spacer(Modifier.height(18.dp))
         Button(
@@ -337,26 +439,7 @@ private fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
         ) {
-            Text(if (isCapturing) "正在定位..." else "定位并保存当前位置")
-        }
-        Spacer(Modifier.height(18.dp))
-
-        if (spots.isEmpty()) {
-            EmptyState()
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                items(spots, key = { it.id }) { spot ->
-                    SpotCard(
-                        spot = spot,
-                        onEdit = { onEdit(spot) },
-                        onFind = { onFind(spot) },
-                        onNavigate = { onNavigate(spot) },
-                    )
-                }
-            }
+            Text(if (isCapturing) "Locating..." else "Save current location")
         }
     }
 }
@@ -366,20 +449,21 @@ private fun EmptyState() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 48.dp),
+            .padding(top = 52.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "还没有保存的位置",
-                style = MaterialTheme.typography.titleMedium,
+                text = "No saved spots yet",
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
+                color = Bone,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "先保存车、钥匙、行李的位置，之后就能按方向找回。",
+                text = "Save the place first. The path back will have a direction.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Smoke,
             )
         }
     }
@@ -393,8 +477,9 @@ private fun SpotCard(
     onNavigate: () -> Unit,
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.94f)),
+        border = BorderStroke(1.dp, Gold.copy(alpha = 0.24f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -404,20 +489,21 @@ private fun SpotCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SpotThumbnail(spot.photoPaths.firstOrNull(), Modifier.size(76.dp))
-            Spacer(Modifier.width(12.dp))
+            SpotThumbnail(spot.photoPaths.firstOrNull(), Modifier.size(82.dp))
+            Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = spot.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                    color = Bone,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = spot.note.ifBlank { "暂无备注" },
+                    text = spot.note.ifBlank { "No note" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Smoke,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -425,20 +511,20 @@ private fun SpotCard(
                 Text(
                     text = "${formatDate(spot.updatedAt)} | ${"%.5f".format(Locale.US, spot.latitude)}, ${"%.5f".format(Locale.US, spot.longitude)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = GoldSoft.copy(alpha = 0.76f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = onFind, shape = RoundedCornerShape(8.dp)) {
-                        Text("找回")
+                        Text("Find")
                     }
                     OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
-                        Text("地图")
+                        Text("Map")
                     }
                     TextButton(onClick = onEdit) {
-                        Text("编辑")
+                        Text("Edit")
                     }
                 }
             }
@@ -462,7 +548,11 @@ private fun EditSpotSheet(
     var note by rememberSaveable(spot.id) { mutableStateOf(spot.note) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Panel,
+        contentColor = Bone,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -471,28 +561,30 @@ private fun EditSpotSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                text = "编辑位置",
+                text = "Edit spot",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
+                color = Bone,
             )
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("物品名称") },
+                label = { Text("Item name") },
                 singleLine = true,
             )
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
+                label = { Text("Note") },
                 minLines = 3,
             )
             Text(
-                text = "图片",
+                text = "Photos",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = Bone,
             )
             if (spot.photoPaths.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -503,10 +595,10 @@ private fun EditSpotSheet(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onPickPhoto, shape = RoundedCornerShape(8.dp)) {
-                    Text("相册")
+                    Text("Gallery")
                 }
                 OutlinedButton(onClick = onTakePhoto, shape = RoundedCornerShape(8.dp)) {
-                    Text("拍照")
+                    Text("Camera")
                 }
             }
             OutlinedButton(
@@ -515,17 +607,17 @@ private fun EditSpotSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text(if (isUpdatingLocation) "正在更新位置..." else "更新为当前位置")
+                Text(if (isUpdatingLocation) "Updating location..." else "Update to current location")
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 TextButton(onClick = { confirmDelete = true }) {
-                    Text("删除")
+                    Text("Delete")
                 }
                 Button(onClick = { onSave(title, note) }, shape = RoundedCornerShape(8.dp)) {
-                    Text("保存")
+                    Text("Save")
                 }
             }
         }
@@ -534,16 +626,19 @@ private fun EditSpotSheet(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("删除这个位置？") },
-            text = { Text("删除后，本地保存的图片也会一起移除。") },
+            containerColor = Panel,
+            titleContentColor = Bone,
+            textContentColor = Smoke,
+            title = { Text("Delete this spot?") },
+            text = { Text("Saved local photos for this spot will also be removed.") },
             confirmButton = {
                 TextButton(onClick = onDelete) {
-                    Text("删除")
+                    Text("Delete")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) {
-                    Text("取消")
+                    Text("Cancel")
                 }
             },
         )
@@ -559,64 +654,72 @@ private fun FindSpotScreen(
     onNavigate: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
-    val heading = rememberDeviceHeading()
-    val rotation = targetBearing?.let { arrowRotationDegrees(it, heading) } ?: 0f
+    val orientation = rememberDeviceOrientation()
+    val rotation = targetBearing?.let { arrowRotationDegrees(it, orientation.headingDegrees) } ?: 0f
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Night,
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onBack) {
-                    Text("返回")
+        RembrandtBackdrop {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = onBack) {
+                        Text("Back")
+                    }
+                    OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
+                        Text("Map navigation")
+                    }
                 }
-                OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
-                    Text("地图导航")
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            Text(
-                text = spot.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = spot.note.ifBlank { "朝箭头方向移动，距离会持续刷新。" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(34.dp))
-            CompassDial(rotationDegrees = rotation)
-            Spacer(Modifier.height(22.dp))
-            Text(
-                text = distanceText,
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = if (targetBearing == null) "正在获取当前位置..." else "方向会随手机朝向实时调整",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
-            spot.photoPaths.firstOrNull()?.let { path ->
-                SpotThumbnail(
-                    path = path,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f),
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = spot.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Bone,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    text = spot.note.ifBlank { "Move in the arrow direction. Distance updates live." },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Smoke,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(34.dp))
+                CompassDial(rotationDegrees = rotation)
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    text = distanceText,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Bone,
+                )
+                Text(
+                    text = when {
+                        targetBearing == null -> "Getting current location..."
+                        orientation.isTilted -> "Keep the phone level for a steadier bearing."
+                        else -> "Direction follows your phone heading."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (orientation.isTilted) GoldSoft else Smoke,
+                )
+                Spacer(Modifier.height(24.dp))
+                spot.photoPaths.firstOrNull()?.let { path ->
+                    SpotThumbnail(
+                        path = path,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f),
+                    )
+                }
             }
         }
     }
@@ -624,22 +727,24 @@ private fun FindSpotScreen(
 
 @Composable
 private fun CompassDial(rotationDegrees: Float) {
-    val primary = MaterialTheme.colorScheme.primary
-    val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-    val outline = MaterialTheme.colorScheme.outlineVariant
-
     Canvas(
         modifier = Modifier
-            .size(230.dp)
+            .size(238.dp)
+            .shadow(34.dp, CircleShape, ambientColor = Color.Black, spotColor = Gold)
             .clip(CircleShape)
-            .background(primaryContainer),
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(PanelSoft, Panel, Night),
+                    radius = 300f,
+                ),
+            )
+            .border(1.dp, Gold.copy(alpha = 0.34f), CircleShape),
     ) {
         val radius = size.minDimension / 2f
         val center = Offset(size.width / 2f, size.height / 2f)
 
         drawCircle(
-            color = outline,
+            color = Gold.copy(alpha = 0.24f),
             radius = radius * 0.86f,
             center = center,
             style = Stroke(width = 2.dp.toPx()),
@@ -649,9 +754,9 @@ private fun CompassDial(rotationDegrees: Float) {
             val isCardinal = index % 6 == 0
             rotate(degrees = index * 15f, pivot = center) {
                 drawLine(
-                    color = if (isCardinal) onPrimaryContainer else outline,
+                    color = if (isCardinal) GoldSoft else Smoke.copy(alpha = 0.42f),
                     start = Offset(center.x, center.y - radius * 0.78f),
-                    end = Offset(center.x, center.y - radius * if (isCardinal) 0.64f else 0.70f),
+                    end = Offset(center.x, center.y - radius * if (isCardinal) 0.62f else 0.70f),
                     strokeWidth = if (isCardinal) 3.dp.toPx() else 1.5.dp.toPx(),
                     cap = StrokeCap.Round,
                 )
@@ -660,18 +765,14 @@ private fun CompassDial(rotationDegrees: Float) {
 
         rotate(degrees = rotationDegrees, pivot = center) {
             val arrow = Path().apply {
-                moveTo(center.x, center.y - radius * 0.66f)
-                lineTo(center.x - radius * 0.18f, center.y + radius * 0.24f)
-                lineTo(center.x, center.y + radius * 0.10f)
-                lineTo(center.x + radius * 0.18f, center.y + radius * 0.24f)
+                moveTo(center.x, center.y - radius * 0.68f)
+                lineTo(center.x - radius * 0.18f, center.y + radius * 0.25f)
+                lineTo(center.x, center.y + radius * 0.11f)
+                lineTo(center.x + radius * 0.18f, center.y + radius * 0.25f)
                 close()
             }
-            drawPath(path = arrow, color = primary)
-            drawCircle(
-                color = onPrimaryContainer,
-                radius = radius * 0.05f,
-                center = center,
-            )
+            drawPath(path = arrow, color = Gold)
+            drawCircle(color = Bone, radius = radius * 0.05f, center = center)
         }
     }
 }
@@ -686,28 +787,32 @@ private fun SpotThumbnail(path: String?, modifier: Modifier) {
             bitmap = bitmap,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = modifier.clip(RoundedCornerShape(8.dp)),
+            modifier = modifier
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Gold.copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
         )
     } else {
         Box(
             modifier = modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer),
+                .background(Umber)
+                .border(1.dp, Gold.copy(alpha = 0.22f), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "无图",
+                text = "No photo",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = Smoke,
             )
         }
     }
 }
 
 @Composable
-private fun rememberDeviceHeading(): Float {
+private fun rememberDeviceOrientation(): DeviceOrientation {
     val context = LocalContext.current
     var heading by remember { mutableFloatStateOf(0f) }
+    var isTilted by remember { mutableStateOf(false) }
     DisposableEffect(context) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
@@ -717,12 +822,31 @@ private fun rememberDeviceHeading(): Float {
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     val rotationMatrix = FloatArray(9)
+                    val adjustedRotationMatrix = FloatArray(9)
                     val orientation = FloatArray(3)
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    SensorManager.getOrientation(rotationMatrix, orientation)
-                    heading = Math.toDegrees(orientation[0].toDouble()).toFloat().let {
+                    val rotation = context.display?.rotation ?: Surface.ROTATION_0
+                    val (axisX, axisY) = when (rotation) {
+                        Surface.ROTATION_90 -> SensorManager.AXIS_Y to SensorManager.AXIS_MINUS_X
+                        Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Y
+                        Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Y to SensorManager.AXIS_X
+                        else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
+                    }
+                    SensorManager.remapCoordinateSystem(
+                        rotationMatrix,
+                        axisX,
+                        axisY,
+                        adjustedRotationMatrix,
+                    )
+                    SensorManager.getOrientation(adjustedRotationMatrix, orientation)
+
+                    val nextHeading = Math.toDegrees(orientation[0].toDouble()).toFloat().let {
                         (it + 360f) % 360f
                     }
+                    val pitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
+                    val roll = Math.toDegrees(orientation[2].toDouble()).toFloat()
+                    isTilted = abs(pitch) > 45f || abs(roll) > 45f
+                    heading = smoothHeading(heading, nextHeading)
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -731,7 +855,12 @@ private fun rememberDeviceHeading(): Float {
             onDispose { sensorManager.unregisterListener(listener) }
         }
     }
-    return heading
+    return DeviceOrientation(headingDegrees = heading, isTilted = isTilted)
+}
+
+private fun smoothHeading(current: Float, target: Float): Float {
+    val delta = ((target - current + 540f) % 360f) - 180f
+    return (current + delta * 0.18f + 360f) % 360f
 }
 
 private fun copyCoordinates(context: Context, spot: SavedSpot) {

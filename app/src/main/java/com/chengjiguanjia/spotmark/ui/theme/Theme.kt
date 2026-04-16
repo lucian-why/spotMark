@@ -12,20 +12,34 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Pine80,
-    secondary = Sky80,
-    tertiary = Amber80
+    primary = Candle80,
+    secondary = Umber80,
+    tertiary = Oxide80,
+    background = Color(0xFF110D0A),
+    surface = Color(0xFF2B1B13),
+    surfaceVariant = Color(0xFF372216),
+    primaryContainer = Color(0xFF4C2D15),
+    secondaryContainer = Color(0xFF2F241D),
+    tertiaryContainer = Color(0xFF4B2418),
+    onPrimary = Color(0xFF20140D),
+    onSecondary = Color(0xFF20140D),
+    onTertiary = Color(0xFF20140D),
+    onBackground = Color(0xFFF4E6CF),
+    onSurface = Color(0xFFF4E6CF),
+    onSurfaceVariant = Color(0xFFBCA78B),
+    outline = Color(0xFF8C7052),
+    outlineVariant = Color(0xFF6A4D35),
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Pine40,
-    secondary = Sky40,
-    tertiary = Amber40,
-    background = Color(0xFFF8FAF7),
-    surface = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD7F0E5),
-    secondaryContainer = Color(0xFFDCEBFF),
-    tertiaryContainer = Color(0xFFFFE7BE),
+    primary = Candle40,
+    secondary = Umber40,
+    tertiary = Oxide40,
+    background = Color(0xFFF8F0E4),
+    surface = Color(0xFFFFF8EE),
+    primaryContainer = Color(0xFFFFE2A9),
+    secondaryContainer = Color(0xFFEBD8BE),
+    tertiaryContainer = Color(0xFFF4C1A7),
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
