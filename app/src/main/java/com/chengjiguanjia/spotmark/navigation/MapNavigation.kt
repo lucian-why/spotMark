@@ -5,30 +5,42 @@ import android.content.Intent
 import android.content.ActivityNotFoundException
 import android.net.Uri
 import com.chengjiguanjia.spotmark.domain.SavedSpot
+import com.chengjiguanjia.spotmark.location.LocationPoint
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 private const val AMAP_PACKAGE = "com.autonavi.minimap"
 private const val GOOGLE_MAPS_PACKAGE = "com.google.android.apps.maps"
 
-fun buildAmapNavigationIntent(spot: SavedSpot): Intent {
-    val lat = String.format(Locale.US, "%.7f", spot.latitude)
-    val lng = String.format(Locale.US, "%.7f", spot.longitude)
-    val label = Uri.encode(spot.title)
-    val uri = Uri.parse(
-        "androidamap://navi?sourceApplication=SpotMark&poiname=$label&lat=$lat&lon=$lng&dev=1&style=2",
-    )
-    return Intent(Intent.ACTION_VIEW, uri).apply {
+fun buildAmapRouteIntent(spot: SavedSpot, origin: LocationPoint?): Intent {
+    return Intent(Intent.ACTION_VIEW, Uri.parse(buildAmapRouteUri(spot, origin))).apply {
         setPackage(AMAP_PACKAGE)
     }
 }
 
-fun buildGoogleNavigationIntent(spot: SavedSpot): Intent {
-    val lat = String.format(Locale.US, "%.7f", spot.latitude)
-    val lng = String.format(Locale.US, "%.7f", spot.longitude)
-    val uri = Uri.parse("google.navigation:q=$lat,$lng")
-    return Intent(Intent.ACTION_VIEW, uri).apply {
+internal fun buildAmapRouteUri(spot: SavedSpot, origin: LocationPoint?): String {
+    val dlat = String.format(Locale.US, "%.7f", spot.latitude)
+    val dlon = String.format(Locale.US, "%.7f", spot.longitude)
+    val label = uriEncode(spot.title)
+    val originParams = origin?.let {
+        val slat = String.format(Locale.US, "%.7f", it.latitude)
+        val slon = String.format(Locale.US, "%.7f", it.longitude)
+        "&sname=${uriEncode("Current location")}&slat=$slat&slon=$slon"
+    } ?: ""
+    return "androidamap://route?sourceApplication=SpotMark$originParams&dname=$label&dlat=$dlat&dlon=$dlon&dev=1&t=0"
+}
+
+fun buildGoogleRouteIntent(spot: SavedSpot): Intent {
+    return Intent(Intent.ACTION_VIEW, Uri.parse(buildGoogleRouteUri(spot))).apply {
         setPackage(GOOGLE_MAPS_PACKAGE)
     }
+}
+
+internal fun buildGoogleRouteUri(spot: SavedSpot): String {
+    val lat = String.format(Locale.US, "%.7f", spot.latitude)
+    val lng = String.format(Locale.US, "%.7f", spot.longitude)
+    return "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving"
 }
 
 fun buildMapFallbackIntent(spot: SavedSpot): Intent {
@@ -38,10 +50,13 @@ fun buildMapFallbackIntent(spot: SavedSpot): Intent {
     return Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$lat,$lng($label)"))
 }
 
-fun openNavigation(context: Context, spot: SavedSpot): Boolean {
+private fun uriEncode(value: String): String =
+    URLEncoder.encode(value, StandardCharsets.UTF_8.toString()).replace("+", "%20")
+
+fun openNavigation(context: Context, spot: SavedSpot, origin: LocationPoint? = null): Boolean {
     val candidates = listOf(
-        buildAmapNavigationIntent(spot),
-        buildGoogleNavigationIntent(spot),
+        buildAmapRouteIntent(spot, origin),
+        buildGoogleRouteIntent(spot),
         buildMapFallbackIntent(spot),
     )
     return candidates.any { intent -> context.tryStartActivity(intent) }

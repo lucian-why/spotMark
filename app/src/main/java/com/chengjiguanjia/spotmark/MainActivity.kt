@@ -92,6 +92,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chengjiguanjia.spotmark.domain.SavedSpot
+import com.chengjiguanjia.spotmark.location.LocationClient
+import com.chengjiguanjia.spotmark.location.LocationPoint
 import com.chengjiguanjia.spotmark.location.arrowRotationDegrees
 import com.chengjiguanjia.spotmark.location.formatDistance
 import com.chengjiguanjia.spotmark.navigation.openNavigation
@@ -166,6 +168,7 @@ private enum class PendingLocationAction {
     Capture,
     Find,
     Update,
+    Route,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -186,6 +189,7 @@ fun SpotMarkApp(
     var pendingAction by remember { mutableStateOf<PendingLocationAction?>(null) }
     var pendingFindSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingUpdateSpot by remember { mutableStateOf<SavedSpot?>(null) }
+    var pendingRouteSpot by remember { mutableStateOf<SavedSpot?>(null) }
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(
@@ -212,6 +216,15 @@ fun SpotMarkApp(
                 PendingLocationAction.Update -> pendingUpdateSpot?.let { spot ->
                     viewModel.updateSpotLocation(spot)
                 }
+                PendingLocationAction.Route -> pendingRouteSpot?.let { spot ->
+                    scope.launch {
+                        openRoutePreview(
+                            context = context,
+                            spot = spot,
+                            snackbarHostState = snackbarHostState,
+                        )
+                    }
+                }
                 null -> Unit
             }
         } else {
@@ -220,6 +233,7 @@ fun SpotMarkApp(
         pendingAction = null
         pendingFindSpot = null
         pendingUpdateSpot = null
+        pendingRouteSpot = null
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -264,9 +278,13 @@ fun SpotMarkApp(
                 findingSpot = null
             },
             onNavigate = {
-                if (!openNavigation(context, spot)) {
-                    copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.no_map_app)) }
+                scope.launch {
+                    openRoutePreview(
+                        context = context,
+                        spot = spot,
+                        snackbarHostState = snackbarHostState,
+                        origin = uiState.currentLocation,
+                    )
                 }
             },
             snackbarHostState = snackbarHostState,
@@ -314,9 +332,23 @@ fun SpotMarkApp(
                 }
             },
             onNavigate = { spot ->
-                if (!openNavigation(context, spot)) {
-                    copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.no_map_app)) }
+                if (hasLocationPermission()) {
+                    scope.launch {
+                        openRoutePreview(
+                            context = context,
+                            spot = spot,
+                            snackbarHostState = snackbarHostState,
+                        )
+                    }
+                } else {
+                    pendingAction = PendingLocationAction.Route
+                    pendingRouteSpot = spot
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ),
+                    )
                 }
             },
         )
@@ -361,6 +393,21 @@ fun SpotMarkApp(
                 editingSpot = null
             },
         )
+    }
+}
+
+private suspend fun openRoutePreview(
+    context: Context,
+    spot: SavedSpot,
+    snackbarHostState: SnackbarHostState,
+    origin: LocationPoint? = null,
+) {
+    val resolvedOrigin = origin ?: runCatching {
+        LocationClient(context).getCurrentLocation()
+    }.getOrNull()
+    if (!openNavigation(context, spot, resolvedOrigin)) {
+        copyCoordinates(context, spot)
+        snackbarHostState.showSnackbar(context.getString(R.string.no_map_app))
     }
 }
 
