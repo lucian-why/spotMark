@@ -13,6 +13,8 @@
     <string name="find">Find</string>
     <string name="map">Map</string>
     <string name="edit">Edit</string>
+    <string name="update_location_short">Update</string>
+    <string name="rename_spot">Rename spot</string>
     <string name="edit_spot">Edit spot</string>
     <string name="item_name">Item name</string>
     <string name="note">Note</string>

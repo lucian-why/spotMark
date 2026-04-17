@@ -14,6 +14,8 @@
     <string name="find">&#25214;&#22238;</string>
     <string name="map">&#22320;&#22270;</string>
     <string name="edit">&#32534;&#36753;</string>
+    <string name="update_location_short">&#26356;&#26032;</string>
+    <string name="rename_spot">&#20462;&#25913;&#21517;&#31216;</string>
     <string name="edit_spot">&#32534;&#36753;&#20301;&#32622;</string>
     <string name="item_name">&#29289;&#21697;&#21517;&#31216;</string>
     <string name="note">&#22791;&#27880;</string>

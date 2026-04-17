@@ -26,6 +26,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -186,8 +187,10 @@ fun SpotMarkApp(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var editingSpot by remember { mutableStateOf<SavedSpot?>(null) }
+    var renamingSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var findingSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingPhotoSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingAction by remember { mutableStateOf<PendingLocationAction?>(null) }
     var pendingFindSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingUpdateSpot by remember { mutableStateOf<SavedSpot?>(null) }
@@ -253,13 +256,15 @@ fun SpotMarkApp(
         ActivityResultContracts.TakePicture(),
     ) { saved ->
         val uri = pendingCameraUri
-        val spot = editingSpot?.let { selected ->
+        val selectedSpot = pendingPhotoSpot ?: editingSpot
+        val spot = selectedSpot?.let { selected ->
             spots.firstOrNull { it.id == selected.id } ?: selected
         }
         if (saved && uri != null && spot != null) {
             viewModel.addPhoto(spot, uri)
         }
         pendingCameraUri = null
+        pendingPhotoSpot = null
     }
 
     val message = uiState.messageResId?.let { stringResource(it) }
@@ -318,6 +323,13 @@ fun SpotMarkApp(
                 }
             },
             onEdit = { editingSpot = it },
+            onRename = { renamingSpot = it },
+            onTakePhoto = { spot ->
+                pendingPhotoSpot = spot
+                val uri = viewModel.createCameraUri()
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            },
             onFind = { spot ->
                 if (hasLocationPermission()) {
                     findingSpot = spot
@@ -353,6 +365,32 @@ fun SpotMarkApp(
                     )
                 }
             },
+            onUpdateLocation = { spot ->
+                if (hasLocationPermission()) {
+                    viewModel.updateSpotLocation(spot)
+                } else {
+                    pendingAction = PendingLocationAction.Update
+                    pendingUpdateSpot = spot
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ),
+                    )
+                }
+            },
+        )
+    }
+
+    renamingSpot?.let { spot ->
+        val latestSpot = spots.firstOrNull { it.id == spot.id } ?: spot
+        RenameSpotDialog(
+            spot = latestSpot,
+            onDismiss = { renamingSpot = null },
+            onSave = { title ->
+                viewModel.saveSpot(latestSpot, title, latestSpot.note)
+                renamingSpot = null
+            },
         )
     }
 
@@ -371,6 +409,7 @@ fun SpotMarkApp(
                 )
             },
             onTakePhoto = {
+                pendingPhotoSpot = latestSpot
                 val uri = viewModel.createCameraUri()
                 pendingCameraUri = uri
                 cameraLauncher.launch(uri)
@@ -422,8 +461,11 @@ private fun HomeScreen(
     onLanguageChange: (String) -> Unit,
     onCapture: () -> Unit,
     onEdit: (SavedSpot) -> Unit,
+    onRename: (SavedSpot) -> Unit,
+    onTakePhoto: (SavedSpot) -> Unit,
     onFind: (SavedSpot) -> Unit,
     onNavigate: (SavedSpot) -> Unit,
+    onUpdateLocation: (SavedSpot) -> Unit,
 ) {
     RembrandtBackdrop {
         Column(
@@ -453,8 +495,11 @@ private fun HomeScreen(
                         SpotCard(
                             spot = spot,
                             onEdit = { onEdit(spot) },
+                            onRename = { onRename(spot) },
+                            onTakePhoto = { onTakePhoto(spot) },
                             onFind = { onFind(spot) },
                             onNavigate = { onNavigate(spot) },
+                            onUpdateLocation = { onUpdateLocation(spot) },
                         )
                     }
                 }
@@ -614,15 +659,20 @@ private fun EmptyState() {
 private fun SpotCard(
     spot: SavedSpot,
     onEdit: () -> Unit,
+    onRename: () -> Unit,
+    onTakePhoto: () -> Unit,
     onFind: () -> Unit,
     onNavigate: () -> Unit,
+    onUpdateLocation: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.94f)),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.24f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit),
     ) {
         Row(
             modifier = Modifier
@@ -630,7 +680,12 @@ private fun SpotCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SpotThumbnail(spot.photoPaths.firstOrNull(), Modifier.size(82.dp))
+            SpotThumbnail(
+                spot.photoPaths.firstOrNull(),
+                Modifier
+                    .size(82.dp)
+                    .clickable(onClick = onTakePhoto),
+            )
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -640,6 +695,7 @@ private fun SpotCard(
                     color = Bone,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(onClick = onRename),
                 )
                 Text(
                     text = spot.note.ifBlank { stringResource(R.string.no_note) },
@@ -664,13 +720,48 @@ private fun SpotCard(
                     OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
                         Text(stringResource(R.string.map))
                     }
-                    TextButton(onClick = onEdit) {
-                        Text(stringResource(R.string.edit))
+                    TextButton(onClick = onUpdateLocation) {
+                        Text(stringResource(R.string.update_location_short))
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun RenameSpotDialog(
+    spot: SavedSpot,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var title by rememberSaveable(spot.id) { mutableStateOf(spot.title) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Panel,
+        titleContentColor = Bone,
+        textContentColor = Smoke,
+        title = { Text(stringResource(R.string.rename_spot)) },
+        text = {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.item_name)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(title) }) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
