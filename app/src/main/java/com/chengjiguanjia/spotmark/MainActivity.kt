@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Surface
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -130,6 +131,7 @@ class MainActivity : ComponentActivity() {
                 val localized = remember(languageTag) { localizedContext(languageTag) }
                 val configuration = remember(languageTag) { localized.resources.configuration }
                 CompositionLocalProvider(
+                    LocalActivityResultRegistryOwner provides this@MainActivity,
                     LocalContext provides localized,
                     LocalConfiguration provides configuration,
                 ) {

@@ -16,6 +16,7 @@ private const val GOOGLE_MAPS_PACKAGE = "com.google.android.apps.maps"
 fun buildAmapRouteIntent(spot: SavedSpot, origin: LocationPoint?): Intent {
     return Intent(Intent.ACTION_VIEW, Uri.parse(buildAmapRouteUri(spot, origin))).apply {
         setPackage(AMAP_PACKAGE)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
 
@@ -34,6 +35,7 @@ internal fun buildAmapRouteUri(spot: SavedSpot, origin: LocationPoint?): String 
 fun buildGoogleRouteIntent(spot: SavedSpot): Intent {
     return Intent(Intent.ACTION_VIEW, Uri.parse(buildGoogleRouteUri(spot))).apply {
         setPackage(GOOGLE_MAPS_PACKAGE)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
 
@@ -47,7 +49,9 @@ fun buildMapFallbackIntent(spot: SavedSpot): Intent {
     val lat = String.format(Locale.US, "%.7f", spot.latitude)
     val lng = String.format(Locale.US, "%.7f", spot.longitude)
     val label = Uri.encode(spot.title)
-    return Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$lat,$lng($label)"))
+    return Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$lat,$lng($label)")).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
 }
 
 private fun uriEncode(value: String): String =
