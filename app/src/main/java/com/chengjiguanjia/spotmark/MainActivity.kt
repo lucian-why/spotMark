@@ -107,15 +107,16 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
-private val Night = Color(0xFF110D0A)
-private val Umber = Color(0xFF211611)
-private val Panel = Color(0xFF2B1B13)
-private val PanelSoft = Color(0xFF372216)
-private val Gold = Color(0xFFE2A84B)
-private val GoldSoft = Color(0xFFFFD283)
-private val Bone = Color(0xFFF4E6CF)
-private val Smoke = Color(0xFFBCA78B)
-private val Oxide = Color(0xFF8D4027)
+private val Night = Color(0xFFF7EFE2)
+private val Umber = Color(0xFFE5CDA9)
+private val Panel = Color(0xFFFFFAF1)
+private val PanelSoft = Color(0xFFF1DFC4)
+private val Gold = Color(0xFFB57524)
+private val GoldSoft = Color(0xFF7A4B20)
+private val Bone = Color(0xFF25180F)
+private val Smoke = Color(0xFF725E49)
+private val Oxide = Color(0xFF9E4F32)
+private val DeepUmber = Color(0xFF3A2114)
 
 private data class DeviceOrientation(
     val headingDegrees: Float = 0f,
@@ -127,7 +128,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SpotMarkTheme(darkTheme = true, dynamicColor = false) {
+            SpotMarkTheme(darkTheme = false, dynamicColor = false) {
                 var languageTag by remember { mutableStateOf(loadLanguageTag()) }
                 val localized = remember(languageTag) { localizedContext(languageTag) }
                 val configuration = remember(languageTag) { localized.resources.configuration }
@@ -518,7 +519,7 @@ private fun RembrandtBackdrop(content: @Composable () -> Unit) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Gold.copy(alpha = 0.34f), Color.Transparent),
+                    colors = listOf(Gold.copy(alpha = 0.24f), Color.Transparent),
                     center = Offset(size.width * 0.22f, size.height * 0.10f),
                     radius = size.maxDimension * 0.62f,
                 ),
@@ -527,7 +528,7 @@ private fun RembrandtBackdrop(content: @Composable () -> Unit) {
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Oxide.copy(alpha = 0.20f), Color.Transparent),
+                    colors = listOf(DeepUmber.copy(alpha = 0.13f), Color.Transparent),
                     center = Offset(size.width * 0.88f, size.height * 0.74f),
                     radius = size.maxDimension * 0.48f,
                 ),
@@ -550,10 +551,10 @@ private fun HeroPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(26.dp, RoundedCornerShape(8.dp), ambientColor = Color.Black, spotColor = Gold)
+            .shadow(26.dp, RoundedCornerShape(8.dp), ambientColor = DeepUmber, spotColor = Gold)
             .background(
                 brush = Brush.linearGradient(
-                    colors = listOf(PanelSoft, Panel, Umber),
+                    colors = listOf(Panel, PanelSoft, Umber),
                     start = Offset.Zero,
                     end = Offset.Infinite,
                 ),
@@ -962,7 +963,7 @@ private fun CompassDial(rotationDegrees: Float) {
     Canvas(
         modifier = Modifier
             .size(238.dp)
-            .shadow(34.dp, CircleShape, ambientColor = Color.Black, spotColor = Gold)
+            .shadow(34.dp, CircleShape, ambientColor = DeepUmber, spotColor = Gold)
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
