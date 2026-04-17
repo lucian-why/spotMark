@@ -34,6 +34,10 @@ class PhotoStore(
         return target.absolutePath
     }
 
+    fun deletePhoto(path: String) {
+        File(path).delete()
+    }
+
     fun deletePhotos(paths: List<String>) {
         paths.forEach { path -> File(path).delete() }
     }

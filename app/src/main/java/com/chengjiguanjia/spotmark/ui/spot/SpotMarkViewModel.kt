@@ -30,7 +30,7 @@ import java.util.Locale
 data class SpotMarkUiState(
     val isCapturing: Boolean = false,
     val isUpdatingLocation: Boolean = false,
-    @StringRes val messageResId: Int? = null,
+    @param:StringRes val messageResId: Int? = null,
     val currentLocation: LocationPoint? = null,
     val targetMetrics: TargetMetrics? = null,
 )
@@ -148,6 +148,27 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
             }.onFailure { error ->
                 _uiState.update { it.copy(messageResId = R.string.msg_photo_failed) }
             }
+        }
+    }
+
+    fun replaceThumbnailPhoto(spot: SavedSpot, source: Uri) {
+        viewModelScope.launch {
+            runCatching {
+                val path = photoStore.savePhoto(source)
+                repository.updateSpot(spot.copy(photoPaths = spot.photoPaths + path))
+            }.onSuccess {
+                _uiState.update { it.copy(messageResId = R.string.msg_photo_replaced) }
+            }.onFailure { error ->
+                _uiState.update { it.copy(messageResId = R.string.msg_photo_failed) }
+            }
+        }
+    }
+
+    fun deletePhoto(spot: SavedSpot, path: String) {
+        viewModelScope.launch {
+            photoStore.deletePhoto(path)
+            repository.updateSpot(spot.copy(photoPaths = spot.photoPaths - path))
+            _uiState.update { it.copy(messageResId = R.string.msg_photo_deleted) }
         }
     }
 
