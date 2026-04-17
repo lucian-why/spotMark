@@ -2,8 +2,10 @@ package com.chengjiguanjia.spotmark.ui.spot
 
 import android.app.Application
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.chengjiguanjia.spotmark.R
 import com.chengjiguanjia.spotmark.data.SavedSpotRepository
 import com.chengjiguanjia.spotmark.data.SpotMarkDatabase
 import com.chengjiguanjia.spotmark.domain.SavedSpot
@@ -28,7 +30,7 @@ import java.util.Locale
 data class SpotMarkUiState(
     val isCapturing: Boolean = false,
     val isUpdatingLocation: Boolean = false,
-    val message: String? = null,
+    @StringRes val messageResId: Int? = null,
     val currentLocation: LocationPoint? = null,
     val targetMetrics: TargetMetrics? = null,
 )
@@ -50,25 +52,25 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
 
     fun captureCurrentSpot() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isCapturing = true, message = null) }
+            _uiState.update { it.copy(isCapturing = true, messageResId = null) }
             runCatching {
                 val location = locationClient.getCurrentLocation()
                 repository.addSpot(
-                    title = "新位置 ${timeLabel()}",
+                    title = "Spot ${timeLabel()}",
                     note = "",
                     latitude = location.latitude,
                     longitude = location.longitude,
                     accuracyMeters = location.accuracyMeters,
                     photoPaths = emptyList(),
                 )
-                "已保存当前位置，可继续编辑备注和图片"
+                R.string.msg_location_saved
             }.onSuccess { message ->
-                _uiState.update { it.copy(isCapturing = false, message = message) }
+                _uiState.update { it.copy(isCapturing = false, messageResId = message) }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         isCapturing = false,
-                        message = error.message ?: "定位失败，请检查权限和系统定位开关",
+                        messageResId = R.string.msg_location_failed,
                     )
                 }
             }
@@ -82,7 +84,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
             locationClient.observeLocation()
                 .catch { error ->
                     _uiState.update {
-                        it.copy(message = error.message ?: "无法持续获取当前位置")
+                        it.copy(messageResId = R.string.msg_tracking_failed)
                     }
                 }
                 .collect { current ->
@@ -104,15 +106,15 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
 
     fun saveSpot(spot: SavedSpot, title: String, note: String) {
         viewModelScope.launch {
-            val cleanTitle = title.trim().ifBlank { "未命名位置" }
+            val cleanTitle = title.trim().ifBlank { "Untitled spot" }
             repository.updateSpot(spot.copy(title = cleanTitle, note = note.trim()))
-            _uiState.update { it.copy(message = "已保存修改") }
+            _uiState.update { it.copy(messageResId = R.string.msg_changes_saved) }
         }
     }
 
     fun updateSpotLocation(spot: SavedSpot) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isUpdatingLocation = true, message = null) }
+            _uiState.update { it.copy(isUpdatingLocation = true, messageResId = null) }
             runCatching {
                 val location = locationClient.getCurrentLocation()
                 repository.updateSpot(
@@ -122,14 +124,14 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
                         accuracyMeters = location.accuracyMeters,
                     ),
                 )
-                "已更新为当前位置"
+                R.string.msg_location_updated
             }.onSuccess { message ->
-                _uiState.update { it.copy(isUpdatingLocation = false, message = message) }
+                _uiState.update { it.copy(isUpdatingLocation = false, messageResId = message) }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         isUpdatingLocation = false,
-                        message = error.message ?: "更新定位失败，请检查权限和系统定位开关",
+                        messageResId = R.string.msg_location_update_failed,
                     )
                 }
             }
@@ -142,9 +144,9 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
                 val path = photoStore.savePhoto(source)
                 repository.updateSpot(spot.copy(photoPaths = spot.photoPaths + path))
             }.onSuccess {
-                _uiState.update { it.copy(message = "图片已添加") }
+                _uiState.update { it.copy(messageResId = R.string.msg_photo_added) }
             }.onFailure { error ->
-                _uiState.update { it.copy(message = error.message ?: "图片保存失败") }
+                _uiState.update { it.copy(messageResId = R.string.msg_photo_failed) }
             }
         }
     }
@@ -153,12 +155,12 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             repository.deleteSpot(spot)
             photoStore.deletePhotos(spot.photoPaths)
-            _uiState.update { it.copy(message = "已删除位置") }
+            _uiState.update { it.copy(messageResId = R.string.msg_spot_deleted) }
         }
     }
 
     fun clearMessage() {
-        _uiState.update { it.copy(message = null) }
+        _uiState.update { it.copy(messageResId = null) }
     }
 
     fun createCameraUri(): Uri = photoStore.createCameraUri()

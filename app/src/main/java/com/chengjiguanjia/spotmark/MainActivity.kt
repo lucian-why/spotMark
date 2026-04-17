@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -60,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -81,7 +83,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,9 +124,41 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SpotMarkTheme(darkTheme = true, dynamicColor = false) {
-                SpotMarkApp()
+                var languageTag by remember { mutableStateOf(loadLanguageTag()) }
+                val localized = remember(languageTag) { localizedContext(languageTag) }
+                val configuration = remember(languageTag) { localized.resources.configuration }
+                CompositionLocalProvider(
+                    LocalContext provides localized,
+                    LocalConfiguration provides configuration,
+                ) {
+                    SpotMarkApp(
+                        languageTag = languageTag,
+                        onLanguageChange = { nextTag ->
+                            saveLanguageTag(nextTag)
+                            languageTag = nextTag
+                        },
+                    )
+                }
             }
         }
+    }
+
+    private fun loadLanguageTag(): String =
+        getSharedPreferences("spotmark_settings", Context.MODE_PRIVATE)
+            .getString("language_tag", "en") ?: "en"
+
+    private fun saveLanguageTag(languageTag: String) {
+        getSharedPreferences("spotmark_settings", Context.MODE_PRIVATE)
+            .edit()
+            .putString("language_tag", languageTag)
+            .apply()
+    }
+
+    private fun localizedContext(languageTag: String): Context {
+        val locale = Locale.forLanguageTag(languageTag)
+        val config = Configuration(resources.configuration)
+        config.setLocale(locale)
+        return createConfigurationContext(config)
     }
 }
 
@@ -135,6 +171,8 @@ private enum class PendingLocationAction {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpotMarkApp(
+    languageTag: String,
+    onLanguageChange: (String) -> Unit,
     viewModel: SpotMarkViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -177,7 +215,7 @@ fun SpotMarkApp(
                 null -> Unit
             }
         } else {
-            scope.launch { snackbarHostState.showSnackbar("Location permission is required.") }
+            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.permission_required)) }
         }
         pendingAction = null
         pendingFindSpot = null
@@ -208,9 +246,10 @@ fun SpotMarkApp(
         pendingCameraUri = null
     }
 
-    LaunchedEffect(uiState.message) {
-        uiState.message?.let { message ->
-            snackbarHostState.showSnackbar(message)
+    val message = uiState.messageResId?.let { stringResource(it) }
+    LaunchedEffect(message) {
+        message?.let {
+            snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
     }
@@ -227,7 +266,7 @@ fun SpotMarkApp(
             onNavigate = {
                 if (!openNavigation(context, spot)) {
                     copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar("No map app found. Coordinates copied.") }
+                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.no_map_app)) }
                 }
             },
             snackbarHostState = snackbarHostState,
@@ -243,6 +282,8 @@ fun SpotMarkApp(
             spots = spots,
             isCapturing = uiState.isCapturing,
             contentPadding = innerPadding,
+            languageTag = languageTag,
+            onLanguageChange = onLanguageChange,
             onCapture = {
                 if (hasLocationPermission()) {
                     viewModel.captureCurrentSpot()
@@ -275,7 +316,7 @@ fun SpotMarkApp(
             onNavigate = { spot ->
                 if (!openNavigation(context, spot)) {
                     copyCoordinates(context, spot)
-                    scope.launch { snackbarHostState.showSnackbar("No map app found. Coordinates copied.") }
+                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.no_map_app)) }
                 }
             },
         )
@@ -328,6 +369,8 @@ private fun HomeScreen(
     spots: List<SavedSpot>,
     isCapturing: Boolean,
     contentPadding: PaddingValues,
+    languageTag: String,
+    onLanguageChange: (String) -> Unit,
     onCapture: () -> Unit,
     onEdit: (SavedSpot) -> Unit,
     onFind: (SavedSpot) -> Unit,
@@ -345,6 +388,8 @@ private fun HomeScreen(
                 isCapturing = isCapturing,
                 onCapture = onCapture,
                 savedCount = spots.size,
+                languageTag = languageTag,
+                onLanguageChange = onLanguageChange,
             )
             Spacer(Modifier.height(18.dp))
 
@@ -405,6 +450,8 @@ private fun HeroPanel(
     isCapturing: Boolean,
     onCapture: () -> Unit,
     savedCount: Int,
+    languageTag: String,
+    onLanguageChange: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -421,17 +468,26 @@ private fun HeroPanel(
             .border(1.dp, Gold.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
             .padding(18.dp),
     ) {
-        Text(
-            text = "SpotMark",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Black,
-            color = Bone,
-        )
-        Text(
-            text = "Saved lights in the dark: $savedCount",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Smoke,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Black,
+                    color = Bone,
+                )
+                Text(
+                    text = stringResource(R.string.hero_count, savedCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Smoke,
+                )
+            }
+            LanguageToggle(languageTag = languageTag, onLanguageChange = onLanguageChange)
+        }
         Spacer(Modifier.height(18.dp))
         Button(
             onClick = onCapture,
@@ -439,7 +495,43 @@ private fun HeroPanel(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
         ) {
-            Text(if (isCapturing) "Locating..." else "Save current location")
+            Text(if (isCapturing) stringResource(R.string.locating) else stringResource(R.string.save_current_location))
+        }
+    }
+}
+
+@Composable
+private fun LanguageToggle(
+    languageTag: String,
+    onLanguageChange: (String) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        LanguageButton(
+            text = stringResource(R.string.language_english),
+            selected = languageTag == "en",
+            onClick = { onLanguageChange("en") },
+        )
+        LanguageButton(
+            text = stringResource(R.string.language_chinese),
+            selected = languageTag == "zh-CN",
+            onClick = { onLanguageChange("zh-CN") },
+        )
+    }
+}
+
+@Composable
+private fun LanguageButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    if (selected) {
+        FilledTonalButton(onClick = onClick, shape = RoundedCornerShape(8.dp)) {
+            Text(text)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, shape = RoundedCornerShape(8.dp)) {
+            Text(text)
         }
     }
 }
@@ -454,14 +546,14 @@ private fun EmptyState() {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "No saved spots yet",
+                text = stringResource(R.string.empty_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = Bone,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Save the place first. The path back will have a direction.",
+                text = stringResource(R.string.empty_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Smoke,
             )
@@ -501,7 +593,7 @@ private fun SpotCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = spot.note.ifBlank { "No note" },
+                    text = spot.note.ifBlank { stringResource(R.string.no_note) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = Smoke,
                     maxLines = 2,
@@ -518,13 +610,13 @@ private fun SpotCard(
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = onFind, shape = RoundedCornerShape(8.dp)) {
-                        Text("Find")
+                        Text(stringResource(R.string.find))
                     }
                     OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
-                        Text("Map")
+                        Text(stringResource(R.string.map))
                     }
                     TextButton(onClick = onEdit) {
-                        Text("Edit")
+                        Text(stringResource(R.string.edit))
                     }
                 }
             }
@@ -561,7 +653,7 @@ private fun EditSpotSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                text = "Edit spot",
+                text = stringResource(R.string.edit_spot),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = Bone,
@@ -570,18 +662,18 @@ private fun EditSpotSheet(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Item name") },
+                label = { Text(stringResource(R.string.item_name)) },
                 singleLine = true,
             )
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Note") },
+                label = { Text(stringResource(R.string.note)) },
                 minLines = 3,
             )
             Text(
-                text = "Photos",
+                text = stringResource(R.string.photos),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Bone,
@@ -595,10 +687,10 @@ private fun EditSpotSheet(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onPickPhoto, shape = RoundedCornerShape(8.dp)) {
-                    Text("Gallery")
+                    Text(stringResource(R.string.gallery))
                 }
                 OutlinedButton(onClick = onTakePhoto, shape = RoundedCornerShape(8.dp)) {
-                    Text("Camera")
+                    Text(stringResource(R.string.camera))
                 }
             }
             OutlinedButton(
@@ -607,17 +699,17 @@ private fun EditSpotSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text(if (isUpdatingLocation) "Updating location..." else "Update to current location")
+                Text(if (isUpdatingLocation) stringResource(R.string.updating_location) else stringResource(R.string.update_current_location))
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 TextButton(onClick = { confirmDelete = true }) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
                 Button(onClick = { onSave(title, note) }, shape = RoundedCornerShape(8.dp)) {
-                    Text("Save")
+                    Text(stringResource(R.string.save))
                 }
             }
         }
@@ -629,16 +721,16 @@ private fun EditSpotSheet(
             containerColor = Panel,
             titleContentColor = Bone,
             textContentColor = Smoke,
-            title = { Text("Delete this spot?") },
-            text = { Text("Saved local photos for this spot will also be removed.") },
+            title = { Text(stringResource(R.string.delete_this_spot)) },
+            text = { Text(stringResource(R.string.delete_photo_warning)) },
             confirmButton = {
                 TextButton(onClick = onDelete) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -671,10 +763,10 @@ private fun FindSpotScreen(
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     TextButton(onClick = onBack) {
-                        Text("Back")
+                        Text(stringResource(R.string.back))
                     }
                     OutlinedButton(onClick = onNavigate, shape = RoundedCornerShape(8.dp)) {
-                        Text("Map navigation")
+                        Text(stringResource(R.string.map_navigation))
                     }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -687,7 +779,7 @@ private fun FindSpotScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = spot.note.ifBlank { "Move in the arrow direction. Distance updates live." },
+                    text = spot.note.ifBlank { stringResource(R.string.find_hint) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = Smoke,
                     maxLines = 3,
@@ -704,9 +796,9 @@ private fun FindSpotScreen(
                 )
                 Text(
                     text = when {
-                        targetBearing == null -> "Getting current location..."
-                        orientation.isTilted -> "Keep the phone level for a steadier bearing."
-                        else -> "Direction follows your phone heading."
+                        targetBearing == null -> stringResource(R.string.getting_current_location)
+                        orientation.isTilted -> stringResource(R.string.keep_phone_level)
+                        else -> stringResource(R.string.heading_follows_phone)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (orientation.isTilted) GoldSoft else Smoke,
@@ -800,7 +892,7 @@ private fun SpotThumbnail(path: String?, modifier: Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "No photo",
+                text = stringResource(R.string.no_photo),
                 style = MaterialTheme.typography.labelMedium,
                 color = Smoke,
             )
