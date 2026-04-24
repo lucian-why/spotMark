@@ -29,7 +29,7 @@ internal fun buildAmapRouteUri(spot: SavedSpot, origin: LocationPoint?): String 
         val slon = String.format(Locale.US, "%.7f", it.longitude)
         "&sname=${uriEncode("Current location")}&slat=$slat&slon=$slon"
     } ?: ""
-    return "androidamap://route?sourceApplication=SpotMark$originParams&dname=$label&dlat=$dlat&dlon=$dlon&dev=1&t=0"
+    return "androidamap://route?sourceApplication=SpotMark$originParams&dname=$label&dlat=$dlat&dlon=$dlon&dev=1&t=2"
 }
 
 fun buildGoogleRouteIntent(spot: SavedSpot): Intent {
@@ -42,7 +42,7 @@ fun buildGoogleRouteIntent(spot: SavedSpot): Intent {
 internal fun buildGoogleRouteUri(spot: SavedSpot): String {
     val lat = String.format(Locale.US, "%.7f", spot.latitude)
     val lng = String.format(Locale.US, "%.7f", spot.longitude)
-    return "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving"
+    return "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking"
 }
 
 fun buildMapFallbackIntent(spot: SavedSpot): Intent {
