@@ -56,6 +56,9 @@
     <string name="msg_spot_deleted">已删除位置。</string>
     <string name="delete_this_photo">删除这张图片？</string>
     <string name="widget_empty">暂无保存的地点</string>
+    <string name="add_home_widget">添加桌面小组件</string>
+    <string name="widget_pin_requested">请在系统弹窗中确认添加小组件。</string>
+    <string name="widget_pin_not_supported">当前桌面不支持从软件内添加小组件，请长按桌面空白处，从“小组件”里添加 SpotMark。</string>
     <string name="widget_navigate">导航</string>
     <string name="widget_update">更新</string>
     <string name="widget_just_now">刚刚</string>

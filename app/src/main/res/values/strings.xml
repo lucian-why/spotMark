@@ -55,6 +55,9 @@
     <string name="msg_spot_deleted">Spot deleted.</string>
     <string name="delete_this_photo">Delete this photo?</string>
     <string name="widget_empty">No saved spots yet</string>
+    <string name="add_home_widget">Add home widget</string>
+    <string name="widget_pin_requested">Confirm adding the widget on the system prompt.</string>
+    <string name="widget_pin_not_supported">This launcher does not support adding widgets from the app. Long-press the home screen and add SpotMark from Widgets.</string>
     <string name="widget_navigate">Nav</string>
     <string name="widget_update">Upd</string>
     <string name="widget_just_now">just now</string>

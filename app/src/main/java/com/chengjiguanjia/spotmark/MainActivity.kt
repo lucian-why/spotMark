@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.AlertDialog
@@ -107,6 +108,7 @@ import com.chengjiguanjia.spotmark.location.formatDistance
 import com.chengjiguanjia.spotmark.navigation.openNavigationWithPreference
 import com.chengjiguanjia.spotmark.ui.spot.SpotMarkViewModel
 import com.chengjiguanjia.spotmark.ui.theme.SpotMarkTheme
+import com.chengjiguanjia.spotmark.widget.requestPinSpotMarkWidget
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -334,6 +336,20 @@ fun SpotMarkApp(
                     )
                 }
             },
+            onAddWidget = {
+                val requested = requestPinSpotMarkWidget(context)
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        context.getString(
+                            if (requested) {
+                                R.string.widget_pin_requested
+                            } else {
+                                R.string.widget_pin_not_supported
+                            },
+                        ),
+                    )
+                }
+            },
             onEdit = { editingSpot = it },
             onRename = { renamingSpot = it },
             onTakePhoto = { spot ->
@@ -485,6 +501,7 @@ private fun HomeScreen(
     languageTag: String,
     onLanguageChange: (String) -> Unit,
     onCapture: () -> Unit,
+    onAddWidget: () -> Unit,
     onEdit: (SavedSpot) -> Unit,
     onRename: (SavedSpot) -> Unit,
     onTakePhoto: (SavedSpot) -> Unit,
@@ -512,6 +529,8 @@ private fun HomeScreen(
                 isCapturing = isCapturing,
                 onCapture = onCapture,
             )
+            Spacer(Modifier.height(10.dp))
+            AddWidgetButton(onClick = onAddWidget)
             Spacer(Modifier.height(20.dp))
 
             if (spots.isEmpty()) {
@@ -649,6 +668,31 @@ private fun LocateButton(
                 stringResource(R.string.save_current_location)
             },
             style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun AddWidgetButton(
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(R.string.add_home_widget),
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
     }
