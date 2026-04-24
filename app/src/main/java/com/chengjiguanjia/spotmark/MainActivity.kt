@@ -146,6 +146,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     SpotMarkApp(
                         languageTag = languageTag,
+                        onRequestPinWidget = { requestPinSpotMarkWidget(this@MainActivity) },
                         onLanguageChange = { nextTag ->
                             saveLanguageTag(nextTag)
                             languageTag = nextTag
@@ -186,6 +187,7 @@ private enum class PendingLocationAction {
 @Composable
 fun SpotMarkApp(
     languageTag: String,
+    onRequestPinWidget: () -> Boolean,
     onLanguageChange: (String) -> Unit,
     viewModel: SpotMarkViewModel = viewModel(),
 ) {
@@ -204,6 +206,7 @@ fun SpotMarkApp(
     var pendingFindSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingUpdateSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingRouteSpot by remember { mutableStateOf<SavedSpot?>(null) }
+    var showWidgetHelp by remember { mutableStateOf(false) }
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(
@@ -337,7 +340,10 @@ fun SpotMarkApp(
                 }
             },
             onAddWidget = {
-                val requested = requestPinSpotMarkWidget(context)
+                val requested = onRequestPinWidget()
+                if (requested) {
+                    showWidgetHelp = true
+                }
                 scope.launch {
                     snackbarHostState.showSnackbar(
                         context.getString(
@@ -416,6 +422,19 @@ fun SpotMarkApp(
                 }
             },
             onDelete = { viewModel.deleteSpot(it) },
+        )
+    }
+
+    if (showWidgetHelp) {
+        AlertDialog(
+            onDismissRequest = { showWidgetHelp = false },
+            title = { Text(stringResource(R.string.widget_pin_help_title)) },
+            text = { Text(stringResource(R.string.widget_pin_help_body)) },
+            confirmButton = {
+                TextButton(onClick = { showWidgetHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
         )
     }
 

@@ -67,6 +67,10 @@
                 <action android:name="com.chengjiguanjia.spotmark.widget.ACTION_UPDATE_LOCATION" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".widget.WidgetPinResultReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

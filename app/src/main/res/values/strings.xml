@@ -32,6 +32,7 @@
     <string name="update_current_location">Update to current location</string>
     <string name="delete">Delete</string>
     <string name="save">Save</string>
+    <string name="ok">OK</string>
     <string name="delete_this_spot">Delete this spot?</string>
     <string name="delete_photo_warning">Saved local photos for this spot will also be removed.</string>
     <string name="cancel">Cancel</string>
@@ -57,6 +58,9 @@
     <string name="widget_empty">No saved spots yet</string>
     <string name="add_home_widget">Add home widget</string>
     <string name="widget_pin_requested">Confirm adding the widget on the system prompt.</string>
+    <string name="widget_pin_help_title">Add widget</string>
+    <string name="widget_pin_help_body">If no system prompt appears, your launcher blocked in-app widget pinning. Long-press the home screen, open Widgets, then drag SpotMark to the desktop.</string>
+    <string name="widget_pin_added">Widget added.</string>
     <string name="widget_pin_not_supported">This launcher does not support adding widgets from the app. Long-press the home screen and add SpotMark from Widgets.</string>
     <string name="widget_navigate">Nav</string>
     <string name="widget_update">Upd</string>

@@ -33,6 +33,7 @@
     <string name="update_current_location">更新为当前位置</string>
     <string name="delete">删除</string>
     <string name="save">保存</string>
+    <string name="ok">知道了</string>
     <string name="delete_this_spot">删除这个位置？</string>
     <string name="delete_photo_warning">删除后，本地保存的图片也会一起移除。</string>
     <string name="cancel">取消</string>
@@ -58,6 +59,9 @@
     <string name="widget_empty">暂无保存的地点</string>
     <string name="add_home_widget">添加桌面小组件</string>
     <string name="widget_pin_requested">请在系统弹窗中确认添加小组件。</string>
+    <string name="widget_pin_help_title">添加小组件</string>
+    <string name="widget_pin_help_body">如果没有看到系统弹窗，说明当前桌面屏蔽了软件内添加小组件。请长按桌面空白处，进入“小组件”，把 SpotMark 拖到桌面。</string>
+    <string name="widget_pin_added">小组件已添加。</string>
     <string name="widget_pin_not_supported">当前桌面不支持从软件内添加小组件，请长按桌面空白处，从“小组件”里添加 SpotMark。</string>
     <string name="widget_navigate">导航</string>
     <string name="widget_update">更新</string>
