@@ -26,6 +26,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".navigation.MapChoiceActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.SpotMark.Transparent" />
+
+        <activity
+            android:name=".widget.WidgetActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.SpotMark.Transparent" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -35,6 +47,26 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <receiver
+            android:name=".widget.SpotMarkWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/spotmark_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.chengjiguanjia.spotmark.widget.ACTION_NAVIGATE" />
+                <action android:name="com.chengjiguanjia.spotmark.widget.ACTION_UPDATE_LOCATION" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -4,6 +4,13 @@
     <string name="language_chinese">&#20013;&#25991;</string>
     <string name="permission_required">Location permission is required.</string>
     <string name="no_map_app">No map app found. Coordinates copied.</string>
+    <string name="choose_map_app">Choose map app</string>
+    <string name="remember_map_choice">Remember this choice</string>
+    <string name="map_provider_amap">Amap</string>
+    <string name="map_provider_baidu">Baidu Maps</string>
+    <string name="map_provider_tencent">Tencent Maps</string>
+    <string name="map_provider_google">Google Maps</string>
+    <string name="map_provider_system">System map</string>
     <string name="hero_count">Saved places: %1$d</string>
     <string name="save_current_location">Locate</string>
     <string name="locating">Locating...</string>
@@ -47,4 +54,11 @@
     <string name="msg_photo_failed">Photo save failed.</string>
     <string name="msg_spot_deleted">Spot deleted.</string>
     <string name="delete_this_photo">Delete this photo?</string>
+    <string name="widget_empty">No saved spots yet</string>
+    <string name="widget_navigate">Nav</string>
+    <string name="widget_update">Upd</string>
+    <string name="widget_just_now">just now</string>
+    <string name="widget_minutes_ago">%1$d min ago</string>
+    <string name="widget_hours_ago">%1$d hr ago</string>
+    <string name="widget_days_ago">%1$d days ago</string>
 </resources>

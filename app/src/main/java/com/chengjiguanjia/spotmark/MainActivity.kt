@@ -104,7 +104,7 @@ import com.chengjiguanjia.spotmark.location.LocationClient
 import com.chengjiguanjia.spotmark.location.LocationPoint
 import com.chengjiguanjia.spotmark.location.arrowRotationDegrees
 import com.chengjiguanjia.spotmark.location.formatDistance
-import com.chengjiguanjia.spotmark.navigation.openNavigation
+import com.chengjiguanjia.spotmark.navigation.openNavigationWithPreference
 import com.chengjiguanjia.spotmark.ui.spot.SpotMarkViewModel
 import com.chengjiguanjia.spotmark.ui.theme.SpotMarkTheme
 import kotlinx.coroutines.launch
@@ -471,7 +471,7 @@ private suspend fun openRoutePreview(
     val resolvedOrigin = origin ?: runCatching {
         LocationClient(context).getCurrentLocation()
     }.getOrNull()
-    if (!openNavigation(context, spot, resolvedOrigin)) {
+    if (!openNavigationWithPreference(context, spot, resolvedOrigin)) {
         copyCoordinates(context, spot)
         snackbarHostState.showSnackbar(context.getString(R.string.no_map_app))
     }

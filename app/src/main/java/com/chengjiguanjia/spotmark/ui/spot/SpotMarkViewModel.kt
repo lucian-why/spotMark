@@ -14,6 +14,7 @@ import com.chengjiguanjia.spotmark.location.LocationPoint
 import com.chengjiguanjia.spotmark.location.TargetMetrics
 import com.chengjiguanjia.spotmark.location.metricsToTarget
 import com.chengjiguanjia.spotmark.media.PhotoStore
+import com.chengjiguanjia.spotmark.widget.updateAllWidgets
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -63,6 +64,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
                     accuracyMeters = location.accuracyMeters,
                     photoPaths = emptyList(),
                 )
+                refreshWidgets()
                 R.string.msg_location_saved
             }.onSuccess { message ->
                 _uiState.update { it.copy(isCapturing = false, messageResId = message) }
@@ -108,6 +110,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val cleanTitle = title.trim().ifBlank { "Untitled spot" }
             repository.updateSpot(spot.copy(title = cleanTitle, note = note.trim()))
+            refreshWidgets()
             _uiState.update { it.copy(messageResId = R.string.msg_changes_saved) }
         }
     }
@@ -124,6 +127,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
                         accuracyMeters = location.accuracyMeters,
                     ),
                 )
+                refreshWidgets()
                 R.string.msg_location_updated
             }.onSuccess { message ->
                 _uiState.update { it.copy(isUpdatingLocation = false, messageResId = message) }
@@ -143,6 +147,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
             runCatching {
                 val path = photoStore.savePhoto(source)
                 repository.updateSpot(spot.copy(photoPaths = spot.photoPaths + path))
+                refreshWidgets()
             }.onSuccess {
                 _uiState.update { it.copy(messageResId = R.string.msg_photo_added) }
             }.onFailure { error ->
@@ -156,6 +161,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
             runCatching {
                 val path = photoStore.savePhoto(source)
                 repository.updateSpot(spot.copy(photoPaths = spot.photoPaths + path))
+                refreshWidgets()
             }.onSuccess {
                 _uiState.update { it.copy(messageResId = R.string.msg_photo_replaced) }
             }.onFailure { error ->
@@ -168,6 +174,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             photoStore.deletePhoto(path)
             repository.updateSpot(spot.copy(photoPaths = spot.photoPaths - path))
+            refreshWidgets()
             _uiState.update { it.copy(messageResId = R.string.msg_photo_deleted) }
         }
     }
@@ -176,6 +183,7 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             repository.deleteSpot(spot)
             photoStore.deletePhotos(spot.photoPaths)
+            refreshWidgets()
             _uiState.update { it.copy(messageResId = R.string.msg_spot_deleted) }
         }
     }
@@ -188,4 +196,8 @@ class SpotMarkViewModel(application: Application) : AndroidViewModel(application
 
     private fun timeLabel(): String =
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+    private suspend fun refreshWidgets() {
+        updateAllWidgets(getApplication<Application>().applicationContext)
+    }
 }
