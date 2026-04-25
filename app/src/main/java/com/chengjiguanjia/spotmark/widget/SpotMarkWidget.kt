@@ -23,6 +23,7 @@ import kotlin.math.abs
 const val ACTION_NAVIGATE = "com.chengjiguanjia.spotmark.widget.ACTION_NAVIGATE"
 const val ACTION_UPDATE_LOCATION = "com.chengjiguanjia.spotmark.widget.ACTION_UPDATE_LOCATION"
 const val ACTION_CAPTURE_LOCATION = "com.chengjiguanjia.spotmark.widget.ACTION_CAPTURE_LOCATION"
+const val ACTION_RENAME_SPOT = "com.chengjiguanjia.spotmark.widget.ACTION_RENAME_SPOT"
 const val EXTRA_SPOT_ID = "spot_id"
 const val EXTRA_SPOT_TITLE = "spot_title"
 const val EXTRA_SPOT_LAT = "spot_lat"
@@ -70,6 +71,7 @@ private fun buildWidgetViews(context: Context, spots: List<SavedSpotEntity>): Re
         if (spot != null) {
             views.setTextViewText(row.titleId, spot.title)
             views.setTextViewText(row.timeId, formatTimeAgo(context, spot.updatedAt))
+            views.setOnClickPendingIntent(row.titleId, renamePendingIntent(context, spot, index))
             views.setOnClickPendingIntent(row.navigateId, spotPendingIntent(context, spot, ACTION_NAVIGATE, index))
             views.setOnClickPendingIntent(row.updateId, spotPendingIntent(context, spot, ACTION_UPDATE_LOCATION, index))
         }
@@ -87,6 +89,26 @@ private fun capturePendingIntent(context: Context): PendingIntent {
     return PendingIntent.getActivity(
         context,
         ACTION_CAPTURE_LOCATION.hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+}
+
+private fun renamePendingIntent(
+    context: Context,
+    spot: SavedSpotEntity,
+    index: Int,
+): PendingIntent {
+    val intent = Intent(context, WidgetRenameActivity::class.java).apply {
+        action = ACTION_RENAME_SPOT
+        data = Uri.parse("spotmark://widget/$ACTION_RENAME_SPOT/${spot.id}/$index")
+        putExtra(EXTRA_SPOT_ID, spot.id)
+        putExtra(EXTRA_SPOT_TITLE, spot.title)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    return PendingIntent.getActivity(
+        context,
+        abs((spot.id.toString() + ACTION_RENAME_SPOT + index).hashCode()),
         intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
