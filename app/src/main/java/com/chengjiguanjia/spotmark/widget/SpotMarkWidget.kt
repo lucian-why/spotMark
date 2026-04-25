@@ -22,6 +22,7 @@ import kotlin.math.abs
 
 const val ACTION_NAVIGATE = "com.chengjiguanjia.spotmark.widget.ACTION_NAVIGATE"
 const val ACTION_UPDATE_LOCATION = "com.chengjiguanjia.spotmark.widget.ACTION_UPDATE_LOCATION"
+const val ACTION_CAPTURE_LOCATION = "com.chengjiguanjia.spotmark.widget.ACTION_CAPTURE_LOCATION"
 const val EXTRA_SPOT_ID = "spot_id"
 const val EXTRA_SPOT_TITLE = "spot_title"
 const val EXTRA_SPOT_LAT = "spot_lat"
@@ -54,6 +55,7 @@ suspend fun updateSpotMarkWidgets(
 private fun buildWidgetViews(context: Context, spots: List<SavedSpotEntity>): RemoteViews {
     val views = RemoteViews(context.packageName, R.layout.widget_layout)
     views.setTextViewText(R.id.widget_title, context.getString(R.string.app_name))
+    views.setOnClickPendingIntent(R.id.widget_capture, capturePendingIntent(context))
     views.setViewVisibility(R.id.widget_empty, if (spots.isEmpty()) View.VISIBLE else View.GONE)
 
     val rows = listOf(
@@ -74,6 +76,20 @@ private fun buildWidgetViews(context: Context, spots: List<SavedSpotEntity>): Re
     }
 
     return views
+}
+
+private fun capturePendingIntent(context: Context): PendingIntent {
+    val intent = Intent(context, WidgetActionActivity::class.java).apply {
+        action = ACTION_CAPTURE_LOCATION
+        data = Uri.parse("spotmark://widget/$ACTION_CAPTURE_LOCATION")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    return PendingIntent.getActivity(
+        context,
+        ACTION_CAPTURE_LOCATION.hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 }
 
 private fun spotPendingIntent(

@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.chengjiguanjia.spotmark.R
+import com.chengjiguanjia.spotmark.data.SavedSpotEntity
 import com.chengjiguanjia.spotmark.data.SpotMarkDatabase
 import com.chengjiguanjia.spotmark.location.LocationClient
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +24,7 @@ class WidgetActionActivity : ComponentActivity() {
         val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
-            updateSpotLocation()
+            runRequestedAction()
         } else {
             Toast.makeText(this, R.string.permission_required, Toast.LENGTH_SHORT).show()
             finish()
@@ -33,11 +34,19 @@ class WidgetActionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.action != ACTION_UPDATE_LOCATION) {
+            if (intent.action == ACTION_CAPTURE_LOCATION) {
+                requestLocationOrRun()
+                return
+            }
             finish()
             return
         }
+        requestLocationOrRun()
+    }
+
+    private fun requestLocationOrRun() {
         if (hasLocationPermission()) {
-            updateSpotLocation()
+            runRequestedAction()
         } else {
             permissionLauncher.launch(
                 arrayOf(
@@ -45,6 +54,43 @@ class WidgetActionActivity : ComponentActivity() {
                     Manifest.permission.ACCESS_COARSE_LOCATION,
                 ),
             )
+        }
+    }
+
+    private fun runRequestedAction() {
+        when (intent.action) {
+            ACTION_UPDATE_LOCATION -> updateSpotLocation()
+            ACTION_CAPTURE_LOCATION -> captureCurrentSpot()
+            else -> finish()
+        }
+    }
+
+    private fun captureCurrentSpot() {
+        lifecycleScope.launch {
+            val message = runCatching {
+                withContext(Dispatchers.IO) {
+                    val location = LocationClient(this@WidgetActionActivity).getCurrentLocation()
+                    val now = System.currentTimeMillis()
+                    SpotMarkDatabase.get(this@WidgetActionActivity).savedSpotDao().insert(
+                        SavedSpotEntity(
+                            title = getString(R.string.widget_default_spot_title, timeLabel(now)),
+                            note = "",
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            accuracyMeters = location.accuracyMeters,
+                            createdAt = now,
+                            updatedAt = now,
+                            photoPaths = emptyList(),
+                        ),
+                    )
+                    updateAllWidgets(this@WidgetActionActivity)
+                }
+                R.string.msg_location_saved
+            }.getOrElse {
+                R.string.msg_location_failed
+            }
+            Toast.makeText(this@WidgetActionActivity, message, Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
@@ -88,6 +134,10 @@ class WidgetActionActivity : ComponentActivity() {
         ) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(
                 this,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-            ) == PackageManager.PERMISSION_GRANTED
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    private fun timeLabel(epochMillis: Long): String =
+        java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date(epochMillis))
 }
