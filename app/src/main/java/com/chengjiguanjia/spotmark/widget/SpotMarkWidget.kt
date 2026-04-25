@@ -1,38 +1,24 @@
 package com.chengjiguanjia.spotmark.widget
 
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
-import androidx.glance.GlanceId
-import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
-import androidx.glance.action.clickable
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.action.actionSendBroadcast
-import androidx.glance.appwidget.provideContent
-import androidx.glance.background
-import androidx.glance.layout.Alignment
-import androidx.glance.layout.Column
-import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
-import androidx.glance.layout.padding
-import androidx.glance.layout.width
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
+import android.net.Uri
+import android.view.View
+import android.widget.RemoteViews
 import com.chengjiguanjia.spotmark.R
 import com.chengjiguanjia.spotmark.data.SavedSpotEntity
 import com.chengjiguanjia.spotmark.data.SpotMarkDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 const val ACTION_NAVIGATE = "com.chengjiguanjia.spotmark.widget.ACTION_NAVIGATE"
 const val ACTION_UPDATE_LOCATION = "com.chengjiguanjia.spotmark.widget.ACTION_UPDATE_LOCATION"
@@ -41,116 +27,85 @@ const val EXTRA_SPOT_TITLE = "spot_title"
 const val EXTRA_SPOT_LAT = "spot_lat"
 const val EXTRA_SPOT_LNG = "spot_lng"
 
-class SpotMarkWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val spots = try {
-            SpotMarkDatabase.get(context).savedSpotDao().observeSpots().first()
-        } catch (_: Exception) {
-            emptyList()
-        }
-
-        provideContent {
-            GlanceTheme {
-                SpotMarkWidgetContent(context, spots.take(3))
-            }
-        }
+fun updateAllWidgets(context: Context) {
+    val appContext = context.applicationContext
+    val manager = AppWidgetManager.getInstance(appContext)
+    val ids = manager.getAppWidgetIds(ComponentName(appContext, SpotMarkWidgetReceiver::class.java))
+    CoroutineScope(Dispatchers.IO).launch {
+        updateSpotMarkWidgets(appContext, manager, ids)
     }
 }
 
-suspend fun updateAllWidgets(context: Context) {
-    val manager = GlanceAppWidgetManager(context)
-    val widget = SpotMarkWidget()
-    val ids = manager.getGlanceIds(SpotMarkWidget::class.java)
-    ids.forEach { widget.update(context, it) }
-}
-
-@Composable
-fun SpotMarkWidgetContent(context: Context, spots: List<SavedSpotEntity>) {
-    Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .fillMaxWidth()
-            .background(ColorProvider(0xE6FFFFFF.toInt()))
-            .padding(12.dp),
-    ) {
-        Text(
-            text = context.getString(R.string.app_name),
-            style = TextStyle(
-                fontWeight = FontWeight.Bold,
-                color = ColorProvider(0xFF333333.toInt()),
-            ),
-        )
-        Spacer(modifier = GlanceModifier.height(8.dp))
-
-        if (spots.isEmpty()) {
-            Text(
-                text = context.getString(R.string.widget_empty),
-                style = TextStyle(color = ColorProvider(0xFF999999.toInt())),
-            )
-        } else {
-            spots.forEachIndexed { index, spot ->
-                SpotRow(context, spot)
-                if (index < spots.lastIndex) {
-                    Spacer(modifier = GlanceModifier.height(2.dp))
-                }
-            }
-        }
+suspend fun updateSpotMarkWidgets(
+    context: Context,
+    manager: AppWidgetManager,
+    widgetIds: IntArray,
+) {
+    val spots = try {
+        SpotMarkDatabase.get(context).savedSpotDao().observeSpots().first().take(3)
+    } catch (_: Exception) {
+        emptyList()
+    }
+    widgetIds.forEach { widgetId ->
+        manager.updateAppWidget(widgetId, buildWidgetViews(context, spots))
     }
 }
 
-@Composable
-private fun SpotRow(context: Context, spot: SavedSpotEntity) {
-    val navIntent = Intent().apply {
-        setClassName(context.packageName, "com.chengjiguanjia.spotmark.widget.WidgetActionReceiver")
-        action = ACTION_NAVIGATE
+private fun buildWidgetViews(context: Context, spots: List<SavedSpotEntity>): RemoteViews {
+    val views = RemoteViews(context.packageName, R.layout.widget_layout)
+    views.setTextViewText(R.id.widget_title, context.getString(R.string.app_name))
+    views.setViewVisibility(R.id.widget_empty, if (spots.isEmpty()) View.VISIBLE else View.GONE)
+
+    val rows = listOf(
+        WidgetRowViews(R.id.widget_row_1, R.id.widget_spot_title_1, R.id.widget_spot_time_1, R.id.widget_nav_1, R.id.widget_update_1),
+        WidgetRowViews(R.id.widget_row_2, R.id.widget_spot_title_2, R.id.widget_spot_time_2, R.id.widget_nav_2, R.id.widget_update_2),
+        WidgetRowViews(R.id.widget_row_3, R.id.widget_spot_title_3, R.id.widget_spot_time_3, R.id.widget_nav_3, R.id.widget_update_3),
+    )
+
+    rows.forEachIndexed { index, row ->
+        val spot = spots.getOrNull(index)
+        views.setViewVisibility(row.containerId, if (spot == null) View.GONE else View.VISIBLE)
+        if (spot != null) {
+            views.setTextViewText(row.titleId, spot.title)
+            views.setTextViewText(row.timeId, formatTimeAgo(context, spot.updatedAt))
+            views.setOnClickPendingIntent(row.navigateId, spotPendingIntent(context, spot, ACTION_NAVIGATE, index))
+            views.setOnClickPendingIntent(row.updateId, spotPendingIntent(context, spot, ACTION_UPDATE_LOCATION, index))
+        }
+    }
+
+    return views
+}
+
+private fun spotPendingIntent(
+    context: Context,
+    spot: SavedSpotEntity,
+    action: String,
+    index: Int,
+): PendingIntent {
+    val intent = Intent(context, WidgetActionReceiver::class.java).apply {
+        this.action = action
+        data = Uri.parse("spotmark://widget/$action/${spot.id}/$index")
         putExtra(EXTRA_SPOT_ID, spot.id)
         putExtra(EXTRA_SPOT_TITLE, spot.title)
         putExtra(EXTRA_SPOT_LAT, spot.latitude)
         putExtra(EXTRA_SPOT_LNG, spot.longitude)
     }
-    val updateIntent = Intent().apply {
-        setClassName(context.packageName, "com.chengjiguanjia.spotmark.widget.WidgetActionReceiver")
-        action = ACTION_UPDATE_LOCATION
-        putExtra(EXTRA_SPOT_ID, spot.id)
-    }
-
-    Column(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-    ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(
-                    text = spot.title,
-                    style = TextStyle(
-                        fontWeight = FontWeight.Medium,
-                        color = ColorProvider(0xFF333333.toInt()),
-                    ),
-                )
-                Text(
-                    text = formatTimeAgo(context, spot.updatedAt),
-                    style = TextStyle(color = ColorProvider(0xFF999999.toInt())),
-                )
-            }
-            Spacer(modifier = GlanceModifier.width(8.dp))
-            Text(
-                text = context.getString(R.string.widget_navigate),
-                style = TextStyle(color = ColorProvider(0xFF1976D2.toInt())),
-                modifier = GlanceModifier.clickable(actionSendBroadcast(navIntent)),
-            )
-            Spacer(modifier = GlanceModifier.width(8.dp))
-            Text(
-                text = context.getString(R.string.widget_update),
-                style = TextStyle(color = ColorProvider(0xFF1976D2.toInt())),
-                modifier = GlanceModifier.clickable(actionSendBroadcast(updateIntent)),
-            )
-        }
-    }
+    val requestCode = abs((spot.id.toString() + action + index).hashCode())
+    return PendingIntent.getBroadcast(
+        context,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 }
+
+private data class WidgetRowViews(
+    val containerId: Int,
+    val titleId: Int,
+    val timeId: Int,
+    val navigateId: Int,
+    val updateId: Int,
+)
 
 private fun formatTimeAgo(context: Context, epochMillis: Long): String {
     val now = System.currentTimeMillis()

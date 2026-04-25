@@ -16,8 +16,8 @@ android {
         applicationId = "com.chengjiguanjia.spotmark"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -57,8 +57,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.play.services)
-    implementation(libs.glance.appwidget)
-    implementation(libs.glance.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
