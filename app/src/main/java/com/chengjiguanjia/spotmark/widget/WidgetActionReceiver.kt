@@ -3,7 +3,8 @@ package com.chengjiguanjia.spotmark.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.core.content.ContextCompat
+import android.widget.Toast
+import com.chengjiguanjia.spotmark.R
 import com.chengjiguanjia.spotmark.domain.SavedSpot
 import com.chengjiguanjia.spotmark.navigation.openNavigationWithPreference
 
@@ -39,10 +40,12 @@ class WidgetActionReceiver : BroadcastReceiver() {
     }
 
     private fun handleUpdateLocation(context: Context, spotId: Long) {
-        val serviceIntent = Intent(context, WidgetLocationUpdateService::class.java).apply {
+        Toast.makeText(context, R.string.updating_location, Toast.LENGTH_SHORT).show()
+        val activityIntent = Intent(context, WidgetActionActivity::class.java).apply {
             action = ACTION_UPDATE_LOCATION
             putExtra(EXTRA_SPOT_ID, spotId)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        ContextCompat.startForegroundService(context, serviceIntent)
+        context.startActivity(activityIntent)
     }
 }
