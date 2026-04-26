@@ -3,6 +3,7 @@ package com.chengjiguanjia.spotmark.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import com.chengjiguanjia.spotmark.domain.SavedSpot
 import com.chengjiguanjia.spotmark.navigation.openNavigationWithPreference
 
@@ -38,11 +39,10 @@ class WidgetActionReceiver : BroadcastReceiver() {
     }
 
     private fun handleUpdateLocation(context: Context, spotId: Long) {
-        val activityIntent = Intent(context, WidgetActionActivity::class.java).apply {
+        val serviceIntent = Intent(context, WidgetLocationUpdateService::class.java).apply {
             action = ACTION_UPDATE_LOCATION
             putExtra(EXTRA_SPOT_ID, spotId)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(activityIntent)
+        ContextCompat.startForegroundService(context, serviceIntent)
     }
 }

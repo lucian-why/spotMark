@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
+import com.chengjiguanjia.spotmark.MainActivity
 import com.chengjiguanjia.spotmark.R
 import com.chengjiguanjia.spotmark.data.SavedSpotEntity
 import com.chengjiguanjia.spotmark.data.SpotMarkDatabase
@@ -81,9 +82,8 @@ private fun buildWidgetViews(context: Context, spots: List<SavedSpotEntity>): Re
 }
 
 private fun capturePendingIntent(context: Context): PendingIntent {
-    val intent = Intent(context, WidgetActionActivity::class.java).apply {
-        action = ACTION_CAPTURE_LOCATION
-        data = Uri.parse("spotmark://widget/$ACTION_CAPTURE_LOCATION")
+    val intent = Intent(context, MainActivity::class.java).apply {
+        data = Uri.parse("spotmark://widget/open-main")
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     return PendingIntent.getActivity(

@@ -59,6 +59,7 @@
     <string name="widget_capture">Locate</string>
     <string name="widget_default_spot_title">Spot %1$s</string>
     <string name="widget_rename_hint">Tap a name to rename it.</string>
+    <string name="widget_location_channel">Widget location updates</string>
     <string name="add_home_widget">Add home widget</string>
     <string name="widget_pin_requested">Confirm adding the widget on the system prompt.</string>
     <string name="widget_pin_help_title">Add widget</string>
