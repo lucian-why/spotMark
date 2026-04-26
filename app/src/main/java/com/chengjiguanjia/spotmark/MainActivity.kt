@@ -45,12 +45,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -98,9 +105,10 @@ import com.chengjiguanjia.spotmark.location.LocationClient
 import com.chengjiguanjia.spotmark.location.LocationPoint
 import com.chengjiguanjia.spotmark.location.arrowRotationDegrees
 import com.chengjiguanjia.spotmark.location.formatDistance
-import com.chengjiguanjia.spotmark.navigation.openNavigation
+import com.chengjiguanjia.spotmark.navigation.openNavigationWithPreference
 import com.chengjiguanjia.spotmark.ui.spot.SpotMarkViewModel
 import com.chengjiguanjia.spotmark.ui.theme.SpotMarkTheme
+import com.chengjiguanjia.spotmark.widget.requestPinSpotMarkWidget
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -138,6 +146,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     SpotMarkApp(
                         languageTag = languageTag,
+                        onRequestPinWidget = { requestPinSpotMarkWidget(this@MainActivity) },
                         onLanguageChange = { nextTag ->
                             saveLanguageTag(nextTag)
                             languageTag = nextTag
@@ -178,6 +187,7 @@ private enum class PendingLocationAction {
 @Composable
 fun SpotMarkApp(
     languageTag: String,
+    onRequestPinWidget: () -> Boolean,
     onLanguageChange: (String) -> Unit,
     viewModel: SpotMarkViewModel = viewModel(),
 ) {
@@ -191,10 +201,12 @@ fun SpotMarkApp(
     var findingSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var pendingPhotoSpot by remember { mutableStateOf<SavedSpot?>(null) }
+    var isReplacePhoto by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<PendingLocationAction?>(null) }
     var pendingFindSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingUpdateSpot by remember { mutableStateOf<SavedSpot?>(null) }
     var pendingRouteSpot by remember { mutableStateOf<SavedSpot?>(null) }
+    var showWidgetHelp by remember { mutableStateOf(false) }
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(
@@ -261,10 +273,15 @@ fun SpotMarkApp(
             spots.firstOrNull { it.id == selected.id } ?: selected
         }
         if (saved && uri != null && spot != null) {
-            viewModel.addPhoto(spot, uri)
+            if (isReplacePhoto) {
+                viewModel.replaceThumbnailPhoto(spot, uri)
+            } else {
+                viewModel.addPhoto(spot, uri)
+            }
         }
         pendingCameraUri = null
         pendingPhotoSpot = null
+        isReplacePhoto = false
     }
 
     val message = uiState.messageResId?.let { stringResource(it) }
@@ -322,10 +339,35 @@ fun SpotMarkApp(
                     )
                 }
             },
+            onAddWidget = {
+                val requested = onRequestPinWidget()
+                if (requested) {
+                    showWidgetHelp = true
+                }
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        context.getString(
+                            if (requested) {
+                                R.string.widget_pin_requested
+                            } else {
+                                R.string.widget_pin_not_supported
+                            },
+                        ),
+                    )
+                }
+            },
             onEdit = { editingSpot = it },
             onRename = { renamingSpot = it },
             onTakePhoto = { spot ->
                 pendingPhotoSpot = spot
+                isReplacePhoto = false
+                val uri = viewModel.createCameraUri()
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            },
+            onReplacePhoto = { spot ->
+                pendingPhotoSpot = spot
+                isReplacePhoto = true
                 val uri = viewModel.createCameraUri()
                 pendingCameraUri = uri
                 cameraLauncher.launch(uri)
@@ -379,6 +421,20 @@ fun SpotMarkApp(
                     )
                 }
             },
+            onDelete = { viewModel.deleteSpot(it) },
+        )
+    }
+
+    if (showWidgetHelp) {
+        AlertDialog(
+            onDismissRequest = { showWidgetHelp = false },
+            title = { Text(stringResource(R.string.widget_pin_help_title)) },
+            text = { Text(stringResource(R.string.widget_pin_help_body)) },
+            confirmButton = {
+                TextButton(onClick = { showWidgetHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
         )
     }
 
@@ -410,9 +466,13 @@ fun SpotMarkApp(
             },
             onTakePhoto = {
                 pendingPhotoSpot = latestSpot
+                isReplacePhoto = false
                 val uri = viewModel.createCameraUri()
                 pendingCameraUri = uri
                 cameraLauncher.launch(uri)
+            },
+            onDeletePhoto = { path ->
+                viewModel.deletePhoto(latestSpot, path)
             },
             onUpdateLocation = {
                 if (hasLocationPermission()) {
@@ -446,7 +506,7 @@ private suspend fun openRoutePreview(
     val resolvedOrigin = origin ?: runCatching {
         LocationClient(context).getCurrentLocation()
     }.getOrNull()
-    if (!openNavigation(context, spot, resolvedOrigin)) {
+    if (!openNavigationWithPreference(context, spot, resolvedOrigin)) {
         copyCoordinates(context, spot)
         snackbarHostState.showSnackbar(context.getString(R.string.no_map_app))
     }
@@ -460,12 +520,15 @@ private fun HomeScreen(
     languageTag: String,
     onLanguageChange: (String) -> Unit,
     onCapture: () -> Unit,
+    onAddWidget: () -> Unit,
     onEdit: (SavedSpot) -> Unit,
     onRename: (SavedSpot) -> Unit,
     onTakePhoto: (SavedSpot) -> Unit,
+    onReplacePhoto: (SavedSpot) -> Unit,
     onFind: (SavedSpot) -> Unit,
     onNavigate: (SavedSpot) -> Unit,
     onUpdateLocation: (SavedSpot) -> Unit,
+    onDelete: (SavedSpot) -> Unit,
 ) {
     RembrandtBackdrop {
         Column(
@@ -476,13 +539,18 @@ private fun HomeScreen(
         ) {
             Spacer(Modifier.height(24.dp))
             HeroPanel(
-                isCapturing = isCapturing,
-                onCapture = onCapture,
                 savedCount = spots.size,
                 languageTag = languageTag,
                 onLanguageChange = onLanguageChange,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
+            LocateButton(
+                isCapturing = isCapturing,
+                onCapture = onCapture,
+            )
+            Spacer(Modifier.height(10.dp))
+            AddWidgetButton(onClick = onAddWidget)
+            Spacer(Modifier.height(20.dp))
 
             if (spots.isEmpty()) {
                 EmptyState()
@@ -497,9 +565,11 @@ private fun HomeScreen(
                             onEdit = { onEdit(spot) },
                             onRename = { onRename(spot) },
                             onTakePhoto = { onTakePhoto(spot) },
+                            onReplacePhoto = { onReplacePhoto(spot) },
                             onFind = { onFind(spot) },
                             onNavigate = { onNavigate(spot) },
                             onUpdateLocation = { onUpdateLocation(spot) },
+                            onDelete = { onDelete(spot) },
                         )
                     }
                 }
@@ -541,8 +611,6 @@ private fun RembrandtBackdrop(content: @Composable () -> Unit) {
 
 @Composable
 private fun HeroPanel(
-    isCapturing: Boolean,
-    onCapture: () -> Unit,
     savedCount: Int,
     languageTag: String,
     onLanguageChange: (String) -> Unit,
@@ -582,15 +650,70 @@ private fun HeroPanel(
             }
             LanguageToggle(languageTag = languageTag, onLanguageChange = onLanguageChange)
         }
-        Spacer(Modifier.height(18.dp))
-        Button(
-            onClick = onCapture,
-            enabled = !isCapturing,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-        ) {
-            Text(if (isCapturing) stringResource(R.string.locating) else stringResource(R.string.save_current_location))
+    }
+}
+
+@Composable
+private fun LocateButton(
+    isCapturing: Boolean,
+    onCapture: () -> Unit,
+) {
+    Button(
+        onClick = onCapture,
+        enabled = !isCapturing,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp),
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        if (isCapturing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                Icons.Default.MyLocation,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+            )
         }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = if (isCapturing) {
+                stringResource(R.string.locating)
+            } else {
+                stringResource(R.string.save_current_location)
+            },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun AddWidgetButton(
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(R.string.add_home_widget),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -661,30 +784,35 @@ private fun SpotCard(
     onEdit: () -> Unit,
     onRename: () -> Unit,
     onTakePhoto: () -> Unit,
+    onReplacePhoto: () -> Unit,
     onFind: () -> Unit,
     onNavigate: () -> Unit,
     onUpdateLocation: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.94f)),
-        border = BorderStroke(1.dp, Gold.copy(alpha = 0.24f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onEdit),
-    ) {
-        Row(
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.94f)),
+            border = BorderStroke(1.dp, Gold.copy(alpha = 0.24f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .clickable(onClick = onEdit),
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             SpotThumbnail(
-                spot.photoPaths.firstOrNull(),
+                spot.photoPaths.lastOrNull(),
                 Modifier
                     .size(82.dp)
-                    .clickable(onClick = onTakePhoto),
+                    .clickable(onClick = if (spot.photoPaths.isNotEmpty()) onReplacePhoto else onTakePhoto),
             )
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -726,6 +854,46 @@ private fun SpotCard(
                 }
             }
         }
+        }
+
+        IconButton(
+            onClick = { confirmDelete = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(28.dp),
+        ) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = stringResource(R.string.delete),
+                modifier = Modifier.size(18.dp),
+                tint = Smoke,
+            )
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = Panel,
+            titleContentColor = Bone,
+            textContentColor = Smoke,
+            title = { Text(stringResource(R.string.delete_this_spot)) },
+            text = { Text(stringResource(R.string.delete_photo_warning)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    onDelete()
+                }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }
 
@@ -772,6 +940,7 @@ private fun EditSpotSheet(
     onSave: (String, String) -> Unit,
     onPickPhoto: () -> Unit,
     onTakePhoto: () -> Unit,
+    onDeletePhoto: (String) -> Unit,
     onUpdateLocation: () -> Unit,
     isUpdatingLocation: Boolean,
     onDelete: () -> Unit,
@@ -779,6 +948,7 @@ private fun EditSpotSheet(
     var title by rememberSaveable(spot.id) { mutableStateOf(spot.title) }
     var note by rememberSaveable(spot.id) { mutableStateOf(spot.note) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var pendingDeletePhotoPath by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -821,7 +991,23 @@ private fun EditSpotSheet(
             if (spot.photoPaths.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(spot.photoPaths) { path ->
-                        SpotThumbnail(path, Modifier.size(92.dp))
+                        Box {
+                            SpotThumbnail(path, Modifier.size(92.dp))
+                            IconButton(
+                                onClick = { pendingDeletePhotoPath = path },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 0.dp, end = 0.dp)
+                                    .size(22.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.delete),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Smoke,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -870,6 +1056,30 @@ private fun EditSpotSheet(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    pendingDeletePhotoPath?.let { path ->
+        AlertDialog(
+            onDismissRequest = { pendingDeletePhotoPath = null },
+            containerColor = Panel,
+            titleContentColor = Bone,
+            textContentColor = Smoke,
+            title = { Text(stringResource(R.string.delete_this_photo)) },
+            text = { Text(stringResource(R.string.delete_photo_warning)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeletePhoto(path)
+                    pendingDeletePhotoPath = null
+                }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeletePhotoPath = null }) {
                     Text(stringResource(R.string.cancel))
                 }
             },
@@ -944,7 +1154,7 @@ private fun FindSpotScreen(
                     color = if (orientation.isTilted) GoldSoft else Smoke,
                 )
                 Spacer(Modifier.height(24.dp))
-                spot.photoPaths.firstOrNull()?.let { path ->
+                spot.photoPaths.lastOrNull()?.let { path ->
                     SpotThumbnail(
                         path = path,
                         modifier = Modifier

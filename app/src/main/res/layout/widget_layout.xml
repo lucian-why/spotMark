@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="@string/app_name"
+            android:textColor="#333333"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_capture"
+            style="@style/SpotMarkWidgetPrimaryAction"
+            android:text="@string/widget_capture" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:text="@string/widget_empty"
+        android:textColor="#999999"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:id="@+id/widget_row_1"
+        style="@style/SpotMarkWidgetRow">
+
+        <LinearLayout style="@style/SpotMarkWidgetTextColumn">
+
+            <TextView
+                android:id="@+id/widget_spot_title_1"
+                style="@style/SpotMarkWidgetSpotTitle" />
+
+            <TextView
+                android:id="@+id/widget_spot_time_1"
+                style="@style/SpotMarkWidgetSpotTime" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_nav_1"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_navigate" />
+
+        <TextView
+            android:id="@+id/widget_update_1"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_update" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_2"
+        style="@style/SpotMarkWidgetRow">
+
+        <LinearLayout style="@style/SpotMarkWidgetTextColumn">
+
+            <TextView
+                android:id="@+id/widget_spot_title_2"
+                style="@style/SpotMarkWidgetSpotTitle" />
+
+            <TextView
+                android:id="@+id/widget_spot_time_2"
+                style="@style/SpotMarkWidgetSpotTime" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_nav_2"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_navigate" />
+
+        <TextView
+            android:id="@+id/widget_update_2"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_update" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_3"
+        style="@style/SpotMarkWidgetRow">
+
+        <LinearLayout style="@style/SpotMarkWidgetTextColumn">
+
+            <TextView
+                android:id="@+id/widget_spot_title_3"
+                style="@style/SpotMarkWidgetSpotTitle" />
+
+            <TextView
+                android:id="@+id/widget_spot_time_3"
+                style="@style/SpotMarkWidgetSpotTime" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_nav_3"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_navigate" />
+
+        <TextView
+            android:id="@+id/widget_update_3"
+            style="@style/SpotMarkWidgetAction"
+            android:text="@string/widget_update" />
+    </LinearLayout>
+</LinearLayout>
